@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AQI Dashboard</title>
+</head>
+<body style="text-align:center; font-family:Arial">
+
+    <h1>🌍 Air Quality Index (AQI) Analysis Dashboard</h1>
+
+    <form method="POST">
+        <label>Select City:</label>
+        <select name="city">
+            {% for city in cities %}
+                <option value="{{ city }}" {% if city == selected_city %}selected{% endif %}>
+                    {{ city }}
+                </option>
+            {% endfor %}
+        </select>
+        <button type="submit">Show</button>
+    </form>
+
+    <br><br>
+
+    <img src="{{ plot_url }}" width="600">
+
+</body>
+</html>
