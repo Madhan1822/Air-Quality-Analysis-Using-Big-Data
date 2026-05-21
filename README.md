@@ -14,13 +14,13 @@ The system uses Machine Learning algorithms to predict AQI levels based on pollu
 
 ## 🚀 Features
 
-- ✅ AQI Prediction using Machine Learning
-- ✅ Interactive Web Interface
-- ✅ Pollution Trend Visualization
-- ✅ Graphical Analysis using Matplotlib
-- ✅ CSV Dataset Processing
-- ✅ Lightweight and Easy to Use
-- ✅ Flask-Based Web Application
+-  AQI Prediction using Machine Learning
+-  Interactive Web Interface
+-  Pollution Trend Visualization
+-  Graphical Analysis using Matplotlib
+-  CSV Dataset Processing
+-  Lightweight and Easy to Use
+-  Flask-Based Web Application
 
 ---
 
@@ -165,16 +165,6 @@ The system provides:
 - Mobile application support
 - Deep Learning-based prediction
 - Location-based AQI tracking
-
----
-
-## 👨‍💻 Team Members
-
-- Member 1 – Introduction & Project Overview
-- Member 2 – Literature Survey & System Design
-- Member 3 – Implementation & Technology Stack
-- Member 4 – Results & Discussion
-- Member 5 – Conclusion & Future Enhancements
 
 ---
 
