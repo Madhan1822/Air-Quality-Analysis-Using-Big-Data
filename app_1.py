@@ -1,163 +1,291 @@
+# app_2.py
+# BIG DATA STYLE AQI DASHBOARD WITHOUT JAVA / PYSPARK
+# Uses Dask (Parallel Big Data Processing)
+
 import streamlit as st
-import requests
 import pandas as pd
-from datetime import datetime
+import numpy as np
+import dask.dataframe as dd
+import plotly.express as px
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Real-Time AQI Dashboard",
+    page_title="🌍 AQI Big Data Dashboard",
     page_icon="🌍",
     layout="wide"
 )
 
-# ---------------- API KEY ----------------
-API_KEY = "99baf05a5fecf569035d37467ff88ea3"   # ACTIVE KEY ONLY
-
 # ---------------- TITLE ----------------
-st.title("🌍 Real-Time Air Quality Index (AQI) Dashboard")
-st.markdown("Live AQI monitoring using OpenWeatherMap Air Pollution API")
+st.title("🌍 AQI Big Data Analytics Dashboard")
+st.markdown("### Big Data AQI Analysis using Dask + Machine Learning")
 
-st.info("Enter a **valid CITY name** (example: Delhi, Chennai, Coimbatore)")
-
-# ---------------- CITY INPUT ----------------
-city = st.text_input("🏙️ Enter City Name", "Coimbatore").strip()
-
-# ---------------- FUNCTIONS ----------------
-def get_coordinates(city):
-    # Reject very short or invalid inputs early
-    if len(city) < 3:
-        return None, None, None
-
-    url = (
-        f"https://api.openweathermap.org/geo/1.0/direct"
-        f"?q={city}&limit=1&appid={API_KEY}"
+# ---------------- LOAD DATA USING DASK ----------------
+@st.cache_data
+def load_data():
+    df = dd.read_csv(
+        "aqi_data.csv",
+        dtype={
+            "AQI_Bucket": "object"
+        }
     )
+    return df.compute()
 
-    response = requests.get(url)
+df = load_data()
 
-    if response.status_code != 200:
-        return None, None, None
+# ---------------- DATA CLEANING ----------------
+numeric_cols = [
+    "PM2.5", "PM10", "NO", "NO2", "NOx",
+    "NH3", "CO", "SO2", "O3", "AQI"
+]
 
-    data = response.json()
+for col in numeric_cols:
+    df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # No results
-    if not data:
-        return None, None, None
+df.fillna(df.mean(numeric_only=True), inplace=True)
 
-    result = data[0]
+# ---------------- SIDEBAR ----------------
+st.sidebar.header("🔍 Filters")
 
-    # Strict city validation
-    if "name" not in result:
-        return None, None, None
+cities = sorted(df["City"].dropna().unique())
 
-    if result["name"].lower() != city.lower():
-        return None, None, None
+selected_city = st.sidebar.selectbox(
+    "Select City",
+    cities
+)
 
-    return result["lat"], result["lon"], result["name"]
+filtered_df = df[df["City"] == selected_city]
 
-
-def get_aqi(lat, lon):
-    url = (
-        f"https://api.openweathermap.org/data/2.5/air_pollution"
-        f"?lat={lat}&lon={lon}&appid={API_KEY}"
-    )
-
-    response = requests.get(url)
-
-    if response.status_code != 200:
-        return None
-
-    return response.json()
-
-
+# ---------------- AQI CATEGORY ----------------
 def aqi_category(aqi):
-    return {
-        1: "🟢 Good",
-        2: "🟡 Fair",
-        3: "🟠 Moderate",
-        4: "🔴 Poor",
-        5: "🟣 Very Poor"
-    }.get(aqi, "Unknown")
-
-
-def health_advisory(aqi):
-    if aqi <= 2:
-        return "✅ Air quality is acceptable. Enjoy outdoor activities."
-    elif aqi == 3:
-        return "⚠️ Sensitive groups should limit prolonged outdoor exposure."
+    if aqi <= 50:
+        return "🟢 Good"
+    elif aqi <= 100:
+        return "🟡 Satisfactory"
+    elif aqi <= 200:
+        return "🟠 Moderate"
+    elif aqi <= 300:
+        return "🔴 Poor"
+    elif aqi <= 400:
+        return "🟣 Very Poor"
     else:
-        return "❌ Unhealthy air quality. Avoid outdoor exercise and wear masks."
+        return "⚫ Severe"
 
+# ---------------- HEALTH ADVICE ----------------
+def health_advice(aqi):
+    if aqi <= 50:
+        return "Air quality is excellent and safe."
+    elif aqi <= 100:
+        return "Air quality is acceptable."
+    elif aqi <= 200:
+        return "Sensitive groups should reduce outdoor activity."
+    elif aqi <= 300:
+        return "Wear masks outdoors."
+    elif aqi <= 400:
+        return "Avoid outdoor activities."
+    else:
+        return "Health emergency condition."
 
-# ---------------- FETCH DATA ----------------
-lat, lon, valid_city = get_coordinates(city)
+# ---------------- CURRENT AQI ----------------
+latest = filtered_df.iloc[-1]
 
-if lat is None:
-    st.error("❌ Invalid city name. Please enter a REAL city (e.g., Delhi, Chennai).")
-    st.stop()
+aqi_value = latest["AQI"]
 
-data = get_aqi(lat, lon)
-
-if not data or "list" not in data:
-    st.error("❌ AQI data unavailable at the moment.")
-    st.stop()
-
-aqi_value = data["list"][0]["main"]["aqi"]
-components = data["list"][0]["components"]
-timestamp = datetime.fromtimestamp(data["list"][0]["dt"])
-
-# ---------------- KPI METRICS ----------------
-st.subheader(f"📍 Live AQI Summary – {valid_city}")
+st.subheader(f"📍 Current AQI Status - {selected_city}")
 
 col1, col2, col3 = st.columns(3)
-col1.metric("AQI Index", aqi_value)
-col2.metric("AQI Category", aqi_category(aqi_value))
-col3.metric("Last Updated", timestamp.strftime("%Y-%m-%d %H:%M:%S"))
+
+col1.metric("AQI", round(aqi_value, 2))
+col2.metric("Category", aqi_category(aqi_value))
+col3.metric("PM2.5", round(latest["PM2.5"], 2))
 
 # ---------------- HEALTH ADVISORY ----------------
 st.subheader("🩺 Health Advisory")
-st.write(health_advisory(aqi_value))
 
-# ---------------- POLLUTANTS ----------------
-st.subheader("🧪 Pollutant Concentrations (µg/m³)")
+st.info(health_advice(aqi_value))
 
-pollutants_df = pd.DataFrame.from_dict(
-    components, orient="index", columns=["Concentration"]
+# ---------------- AQI TREND ----------------
+st.subheader("📈 AQI Trend Analysis")
+
+fig1 = px.line(
+    filtered_df,
+    x="Date",
+    y="AQI",
+    title=f"AQI Trend - {selected_city}",
+    markers=True
 )
 
-st.bar_chart(pollutants_df)
+st.plotly_chart(fig1, use_container_width=True)
 
-# ---------------- SESSION TREND ----------------
-st.subheader("📈 AQI Trend (Current Session)")
+# ---------------- POLLUTANT ANALYSIS ----------------
+st.subheader("🧪 Pollutant Analysis")
 
-if "aqi_history" not in st.session_state:
-    st.session_state["aqi_history"] = []
+pollutants = ["PM2.5", "PM10", "NO2", "SO2", "CO", "O3"]
 
-st.session_state["aqi_history"].append({
-    "Time": timestamp,
-    "AQI": aqi_value
+avg_pollution = filtered_df[pollutants].mean()
+
+fig2 = px.bar(
+    x=avg_pollution.index,
+    y=avg_pollution.values,
+    labels={"x": "Pollutants", "y": "Average Value"},
+    title="Average Pollutant Levels"
+)
+
+st.plotly_chart(fig2, use_container_width=True)
+
+# ---------------- CORRELATION HEATMAP ----------------
+st.subheader("🔥 Correlation Heatmap")
+
+corr = filtered_df[numeric_cols].corr()
+
+fig3 = px.imshow(
+    corr,
+    text_auto=True,
+    aspect="auto",
+    title="Correlation Matrix"
+)
+
+st.plotly_chart(fig3, use_container_width=True)
+
+# ---------------- AQI DISTRIBUTION ----------------
+st.subheader("📊 AQI Distribution")
+
+fig4 = px.histogram(
+    filtered_df,
+    x="AQI",
+    nbins=30,
+    title="AQI Distribution"
+)
+
+st.plotly_chart(fig4, use_container_width=True)
+
+# ---------------- BIG DATA ANALYTICS ----------------
+st.subheader("⚡ Big Data Analytics")
+
+summary_df = df.groupby("City")["AQI"].agg(
+    ["mean", "max", "min"]
+).reset_index()
+
+summary_df.columns = [
+    "City",
+    "Average AQI",
+    "Maximum AQI",
+    "Minimum AQI"
+]
+
+st.dataframe(summary_df)
+
+# ---------------- MACHINE LEARNING ----------------
+st.subheader("🤖 AQI Prediction using Random Forest")
+
+ml_df = filtered_df.dropna()
+
+features = ["PM2.5", "PM10", "NO2", "SO2", "CO", "O3"]
+
+X = ml_df[features]
+y = ml_df["AQI"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.2,
+    random_state=42
+)
+
+model = RandomForestRegressor(
+    n_estimators=100,
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+
+predictions = model.predict(X_test)
+
+accuracy = r2_score(y_test, predictions)
+
+st.success(f"✅ Model Accuracy: {round(accuracy * 100, 2)}%")
+
+# ---------------- FEATURE IMPORTANCE ----------------
+importance = pd.DataFrame({
+    "Feature": features,
+    "Importance": model.feature_importances_
 })
 
-history_df = pd.DataFrame(st.session_state["aqi_history"])
-st.line_chart(history_df.set_index("Time"))
+fig5 = px.bar(
+    importance,
+    x="Feature",
+    y="Importance",
+    title="Feature Importance"
+)
 
-# ---------------- RAW DATA ----------------
-with st.expander("📄 View AQI History Data"):
-    st.dataframe(history_df)
+st.plotly_chart(fig5, use_container_width=True)
+
+# ---------------- AQI PREDICTION ----------------
+st.subheader("🔮 Predict AQI")
+
+pm25 = st.slider("PM2.5", 0.0, 500.0, 80.0)
+pm10 = st.slider("PM10", 0.0, 500.0, 100.0)
+no2 = st.slider("NO2", 0.0, 300.0, 40.0)
+so2 = st.slider("SO2", 0.0, 300.0, 20.0)
+co = st.slider("CO", 0.0, 200.0, 10.0)
+o3 = st.slider("O3", 0.0, 300.0, 50.0)
+
+future_data = np.array([[
+    pm25,
+    pm10,
+    no2,
+    so2,
+    co,
+    o3
+]])
+
+predicted_aqi = model.predict(future_data)[0]
+
+st.metric("Predicted AQI", round(predicted_aqi, 2))
+
+st.write("Category:", aqi_category(predicted_aqi))
+
+st.warning(health_advice(predicted_aqi))
+
+# ---------------- DOWNLOAD DATA ----------------
+st.subheader("📥 Download Data")
+
+csv = filtered_df.to_csv(index=False)
+
+st.download_button(
+    "Download CSV",
+    csv,
+    file_name="aqi_processed_data.csv",
+    mime="text/csv"
+)
 
 # ---------------- FOOTER ----------------
 st.markdown("---")
+
 st.markdown("""
-**Project:** Real-Time Air Quality Monitoring System  
+### 🌟 Features
 
-**Technologies Used:**  
-Python, Streamlit, REST API, Pandas  
+✅ Big Data Processing using Dask  
+✅ AQI Monitoring  
+✅ Health Advisory  
+✅ Machine Learning Prediction  
+✅ Interactive Graphs  
+✅ Correlation Analysis  
+✅ Download Reports  
 
-**Outcome:**  
-• Live AQI monitoring  
-• Health impact analysis  
-• Pollution trend identification  
-• Data-driven environmental awareness  
+### 🛠 Technologies Used
 
-**Data Source:** OpenWeatherMap Air Pollution API
+- Python
+- Streamlit
+- Dask
+- Pandas
+- Plotly
+- Scikit-learn
+
+### 📌 Outcome
+
+This system analyzes AQI trends, predicts pollution levels,
+and provides health recommendations using Big Data Analytics.
 """)

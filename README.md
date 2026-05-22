@@ -149,25 +149,6 @@ The system provides:
 
 ---
 
-## 🎯 Objectives
-
-- Monitor environmental pollution levels
-- Predict AQI using Machine Learning
-- Provide easy-to-understand visual insights
-- Increase awareness about air pollution
-
----
-
-## 🔮 Future Enhancements
-
-- Real-time AQI prediction using APIs
-- IoT sensor integration
-- Mobile application support
-- Deep Learning-based prediction
-- Location-based AQI tracking
-
----
-
 ## 📌 Conclusion
 
 This project demonstrates how Machine Learning and Web Technologies can be combined to develop an efficient Air Quality Monitoring and Prediction System. The application helps users understand pollution levels and promotes environmental awareness.
